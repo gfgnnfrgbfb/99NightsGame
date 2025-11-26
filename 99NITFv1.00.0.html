@@ -1,0 +1,219 @@
+<html>
+        <head><title>Downloaded HTML</title></head>
+        <body>
+            <pre style="white-space: pre-wrap; word-wrap: break-word;"><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>99 Nights in the Forest 2D</title>
+<style>
+body{margin:0;font-family:Arial,sans-serif;background:#0a2e0a;color:white;overflow:hidden;}
+header{background:linear-gradient(#003300,#0a2e0a);padding:20px;text-align:center;position:relative;}
+header h1{font-size:48px;color:#44cc44;text-shadow:2px 2px #000;margin:0;}
+#versionLabel{position:absolute;top:20px;right:20px;font-size:16px;color:#aaa;font-weight:bold;}
+nav{display:flex;justify-content:center;margin:10px 0;}
+nav button{margin:0 10px;padding:10px 20px;font-size:18px;background:#228822;color:white;border:none;border-radius:5px;cursor:pointer;transition:0.2s;}
+nav button:hover{background:#44cc44;}
+#instructions{max-width:800px;margin:20px auto;text-align:left;display:none;}
+#gameContainer{text-align:center;display:none;margin-top:20px;}
+canvas{background:#1b3d1b;display:block;margin:0 auto;border:2px solid #44cc44;}
+#stats{position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.7);padding:10px;border-radius:5px;font-size:16px;}
+#inventory{position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.7);padding:10px;border-radius:5px;width:220px;display:flex;flex-wrap:wrap;display:none;}
+.slot{width:40px;height:40px;border:1px solid #ccc;margin:2px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.1);cursor:grab;position:relative;}
+.slot .durability{position:absolute;bottom:0;right:0;font-size:10px;color:yellow;}
+#characterCreation,#deathScreen{position:absolute;top:0;left:0;width:100%;height:100%;display:none;text-align:center;padding-top:50px;background:rgba(0,0,0,0.9);}
+#deathScreen{color:red;font-size:48px;}
+footer{text-align:center;padding:10px;background:linear-gradient(#0a2e0a,#003300);position:fixed;width:100%;bottom:0;font-size:14px;color:#aaa;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>99 Nights in the Forest 2D</h1>
+  <div id="versionLabel">v1.00.0</div>
+</header>
+
+<nav>
+  <button id="playBtn">Play Game</button>
+  <button id="instructionsBtn">Instructions</button>
+  <button id="fullscreenBtn">Fullscreen</button>
+</nav>
+
+<section id="instructions">
+  <h2>How to Play</h2>
+  <p>Use <strong>Arrow Keys</strong> to move, <strong>Shift</strong> to run.<br>
+  Press <strong>F</strong> to open/close your backpack.<br>
+  Survive nights using campfires and torches.<br>
+  Health, stamina, and food are displayed top-left.<br>
+  Fullscreen toggle: <strong>~</strong> key or button above.</p>
+</section>
+
+<section id="gameContainer">
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="stats">
+    <div>Health: <span id="healthVal">100</span></div>
+    <div>Stamina: <span id="staminaVal">100</span></div>
+    <div>Food: <span id="foodVal">100</span></div>
+    <div>Time: <span id="timeVal">Day</span></div>
+  </div>
+  <div id="inventory">
+    <div class="slot" id="slot0"></div>
+    <div class="slot" id="slot1"></div>
+    <div class="slot" id="slot2"></div>
+    <div class="slot" id="slot3"></div>
+    <div class="slot" id="slot4"></div>
+  </div>
+</section>
+
+<div id="characterCreation">
+<h2>Character Creation</h2>
+<label>Gender:</label>
+<select id="genderSelect">
+<option value="male">Male</option>
+<option value="female">Female</option>
+</select><br>
+<label>Hair Color:</label>
+<input type="color" id="hairColor" value="#000000"><br>
+<label>Clothes Color:</label>
+<input type="color" id="clothesColor" value="#ff0000"><br>
+<button id="saveChar">Save & Start</button>
+</div>
+
+<div id="deathScreen">
+You Died<br>
+<button id="respawnBtn">Respawn</button>
+</div>
+
+<footer>&copy; 2025 99 Nights in the Forest. All rights reserved.</footer>
+
+<script>
+// ---------------- Navigation ----------------
+const playBtn=document.getElementById('playBtn');
+const instructionsBtn=document.getElementById('instructionsBtn');
+const fullscreenBtn=document.getElementById('fullscreenBtn');
+const instructions=document.getElementById('instructions');
+const gameContainer=document.getElementById('gameContainer');
+const characterCreation=document.getElementById('characterCreation');
+const inventoryDiv=document.getElementById('inventory');
+
+playBtn.addEventListener('click',()=>{characterCreation.style.display='block';instructions.style.display='none';gameContainer.style.display='none';});
+instructionsBtn.addEventListener('click',()=>{instructions.style.display='block';gameContainer.style.display='none';characterCreation.style.display='none';});
+fullscreenBtn.addEventListener('click',()=>{toggleFullscreen();});
+document.addEventListener('keydown',e=>{if(e.key==='`'){toggleFullscreen();}});
+function toggleFullscreen(){const canvas=document.getElementById('gameCanvas');if(!document.fullscreenElement) canvas.requestFullscreen();else document.exitFullscreen();}
+
+// ---------------- Game Initialization ----------------
+function initGame(){
+  const canvas=document.getElementById('gameCanvas');
+  const ctx=canvas.getContext('2d');
+  let gameStarted=false,isDead=false,timeOfDay=12;
+  let player={x:400,y:300,width:30,height:50,color:'#ff0000',hair:'#000000',gender:'male',health:100,stamina:100,food:100,inventory:[],backpackSize:5,lastCampfire:{x:400,y:300}};
+  let enemies=[],chunks={},lights=[];
+  let keys={};
+  document.addEventListener('keydown',e=>keys[e.key]=true);
+  document.addEventListener('keyup',e=>keys[e.key]=false);
+
+  // Open backpack with F
+  document.addEventListener('keydown',e=>{if(e.key==='f'||e.key==='F'){inventoryDiv.style.display=inventoryDiv.style.display==='none'?'flex':'none';}});
+
+  function distance(x1,y1,x2,y2){return Math.hypot(x2-x1,y2-y1);}
+  function getChunkCoords(x,y){return[Math.floor(x/16),Math.floor(y/16)];}
+
+  function generateChunk(cx,cy){
+    if(chunks[`${cx}_${cy}`]) return;
+    let layer=[];
+    for(let y=0;y<16;y++){layer[y]=[];for(let x=0;x<16;x++){let r=Math.random();layer[y][x]=r<0.1?'tree':r<0.13?'cave':'grass';}}
+    chunks[`${cx}_${cy}`]=layer;
+    let count=Math.floor(Math.random()*2);
+    for(let i=0;i<count;i++){
+      let ex=cx*16*50+Math.random()*16*50;
+      let ey=cy*16*50+Math.random()*16*50;
+      if(distance(ex,ey,player.lastCampfire.x,player.lastCampfire.y)>150){
+        let type=Math.random()<0.5?'melee':'ranged';
+        enemies.push({x:ex,y:ey,width:30,height:50,color:type==='melee'?'red':'orange',hp:type==='melee'?50:30,type:type});
+      }
+    }
+  }
+
+  function updatePlayer(){
+    if(isDead) return;
+    let speed=4;if(keys['Shift']&&player.stamina>0)speed=6,player.stamina-=0.3;
+    let dx=0,dy=0;if(keys['ArrowUp'])dy=-speed;if(keys['ArrowDown'])dy=speed;if(keys['ArrowLeft'])dx=-speed;if(keys['ArrowRight'])dx=speed;
+    movePlayer(dx,dy);
+    if(!keys['Shift'] && player.stamina<100)player.stamina+=0.1;
+    if(player.food>0)player.food-=0.001;
+    let [pcx,pcy]=getChunkCoords(player.x,player.y);
+    for(let dx=-2;dx<=2;dx++)for(let dy=-2;dy<=2;dy++)generateChunk(pcx+dx,pcy+dy);
+  }
+
+  function movePlayer(dx,dy){
+    let newX=player.x+dx,newY=player.y+dy;
+    let [cx,cy]=getChunkCoords(newX,newY);
+    let chunk=chunks[`${cx}_${cy}`];if(!chunk) return;
+    let tx=Math.floor(newX%16),ty=Math.floor(newY%16);
+    if(chunk[ty][tx]!=='tree'){player.x=newX;player.y=newY;}
+  }
+
+  function updateEnemies(){
+    enemies.forEach(e=>{
+      let dx=player.x-e.x,dy=player.y-e.y,dist=distance(player.x,player.y,e.x,e.y);
+      let speed=e.type==='melee'?1.5:1.2;
+      if(dist<30){player.health-=0.5;}else{e.x+=dx/dist*speed;e.y+=dy/dist*speed;}
+    });
+  }
+
+  function updateTime(){
+    timeOfDay+=0.01;if(timeOfDay>=24)timeOfDay=0;
+    document.getElementById('timeVal').textContent=timeOfDay<6||timeOfDay>18?'Night':'Day';
+    document.getElementById('healthVal').textContent=Math.floor(player.health);
+    document.getElementById('staminaVal').textContent=Math.floor(player.stamina);
+    document.getElementById('foodVal').textContent=Math.floor(player.food);
+    if(player.health<=0) die();
+  }
+
+  function die(){isDead=true;document.getElementById('deathScreen').style.display='block';}
+  document.getElementById('respawnBtn').addEventListener('click',()=>{isDead=false;player.health=100;player.stamina=100;player.food=100;document.getElementById('deathScreen').style.display='none';player.x=player.lastCampfire.x;player.y=player.lastCampfire.y;});
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const scale=Math.min(canvas.width/800,canvas.height/600);
+    let [pcx,pcy]=getChunkCoords(player.x,player.y);
+    for(let dx=-2;dx<=2;dx++)for(let dy=-2;dy<=2;dy++){
+      let chunk=chunks[`${pcx+dx}_${pcy+dy}`];if(!chunk)continue;
+      for(let y=0;y<16;y++)for(let x=0;x<16;x++){
+        let tile=chunk[y][x];
+        let sx=((pcx+dx)*16+x-player.x)*scale+canvas.width/2;
+        let sy=((pcy+dy)*16+y-player.y)*scale+canvas.height/2;
+        ctx.fillStyle=tile==='grass'?'#0a5d0a':tile==='tree'?'#134a13':'#444';
+        ctx.fillRect(sx,sy,50*scale,50*scale);
+      }
+    }
+    ctx.fillStyle=player.color;ctx.fillRect(canvas.width/2,canvas.height/2,player.width*scale,player.height*scale);
+    ctx.fillStyle=player.hair;ctx.fillRect(canvas.width/2,canvas.height/2-10*scale,player.width*scale,10*scale);
+    enemies.forEach(e=>{const sx=(e.x-player.x)*scale+canvas.width/2,sy=(e.y-player.y)*scale+canvas.height/2;ctx.fillStyle=e.color;ctx.fillRect(sx,sy,e.width*scale,e.height*scale);});
+  }
+
+  function gameLoop(){if(!gameStarted)return;updatePlayer();updateEnemies();updateTime();draw();requestAnimationFrame(gameLoop);}
+
+  // Start game when character is saved
+  document.getElementById('saveChar').addEventListener('click',()=>{
+    player.color=document.getElementById('clothesColor').value;
+    player.hair=document.getElementById('hairColor').value;
+    player.gender=document.getElementById('genderSelect').value;
+    characterCreation.style.display='none';
+    gameContainer.style.display='block';
+    gameStarted=true;
+    gameLoop();
+  });
+}
+
+// Initialize game once
+playBtn.addEventListener('click',()=>{initGame();});
+</script>
+
+</body>
+</html>
+</pre>
+        </body>
+    </html>
